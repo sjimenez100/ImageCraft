@@ -357,6 +357,10 @@ def save_image(collage_image):
     tail_head = copy_tail.rsplit('.', 1)[0]
     new_tail = tail_head + '.png'
 
+    # mkdir 'mosaics' if it does not already exist
+    if 'mosaics' not in os.listdir(cwd):
+        os.mkdir('mosaics')
+
     # if output directory is undefined or not a directory (somehow)
     if output_directory is None or os.path.isdir(output_directory) is False:
         output_directory = os.path.join(cwd, r"mosaics")
