@@ -11,7 +11,7 @@ import os
 
 # GUI configuration of tabs, size , name, ect..
 @Gooey(program_name='IMAGE CRAFT', default_size=(700, 650),
-       program_description='A program designed to create mosaics from minecraft blocks.',
+       program_description='A program designed to turn digital images into mosaics made of minecraft blocks.',
        menu=[{
            'name': 'File',
            'items': [{
@@ -27,8 +27,8 @@ import os
            'name': 'Help',
            'items': [{
                'type': 'Link',
-               'menuTitle': 'Documentation',
-               'url': 'https://potassium3919.itch.io/'
+               'menuTitle': 'Source Code',
+               'url': 'https://github.com/sjimenez100/ImageCraft'
            }]}])
 # custom gui
 def gui():
