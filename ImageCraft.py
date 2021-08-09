@@ -1,5 +1,5 @@
 '''
--7/24/2021
+-08/09/2021
 -ImageCraft, a program made by Sebastian Jimenez
 -This script is responsible for running the main functionalities of Image Craft.
 This does not include the custom GUI.
@@ -11,31 +11,18 @@ import PIL.ImageFile
 from PIL import Image
 import numpy
 import os
-import GUI
+import IC_GUI
 
 # Variables
-# GUI determined (not all)
-resolution_divider = int()
-threshold = int()
-n_range = int()
-keywords = []
-show_image = False
-fill_trans = False
-output_directory = None
-# global host image values
-host_image = None
-host_image_path = None
-host_image_format = None
-host_width = 0
-host_height = 0
-total_host_pixel_count = 0
-tail = str()
-resized = False
+# GUI determined 
+image_gui = IC_GUI.ImageGUI()
+
 # dependents
 dependent_images = []
 dependent_jimages = []
 blank_jimage = None
 trans_jimage = None
+
 # misc.
 selected_jimages = []
 start_time = time.time()
@@ -45,6 +32,7 @@ f = 0
 
 
 # Classes
+
 # Jimage class responsible for creating a synthetic of PIL.Image()
 class Jimage:
 
@@ -74,6 +62,31 @@ class Jimage:
         return av_color
 
 
+class HostImage:
+
+    def __init__(self, fp):
+        self.fp = fp
+        self.pil_image = Image.open(fp)
+        self.format = self.pil_image.format
+        self.width, self.height = self.pil_image.size[0], self.pil_image.size[1]
+        self.pixel_count = self.width * self.height
+        self.tail = os.path.split(self.fp)[1]
+        self.mode = self.pil_image.mode
+        self.resized = False
+        
+    def lower_resolution(self):
+        if image_gui.resolution_divider > 1:
+            self.pil_image = self.pil_image.resize((int(self.width / image_gui.resolution_divider), 
+                                                    int(self.height / image_gui.resolution_divider)), Image.LANCZOS)
+
+            self.fp = os.path.join(cwd, rf'RESIZED-{self.tail}')
+            self.pil_image.save(self.fp)
+
+            self.resized = True
+
+            self.width, self.height = self.pil_image.size[0], self.pil_image.size[1]
+            self.pixel_count = (self.pil_image.size[0] * self.pil_image.size[1])
+
 # Functions
 # ensures that system does not ignore print() updates
 def config_gui():
@@ -95,72 +108,6 @@ def config_gui():
     sys.stdout = Unbuffered(sys.stdout)
 
 
-# calls GUI.gui() and sets the global variables accordingly
-def set_gui():
-    global threshold
-    global keywords
-    global host_image_path
-    global resolution_divider
-    global output_directory
-    global show_image
-    global n_range
-    global fill_trans
-
-    gui_data = GUI.gui()
-
-    threshold = int(gui_data.threshold)
-    n_range = int(gui_data.n_range)
-    fill_trans = bool(gui_data.fill_trans)
-
-    if gui_data.keywords is not None:
-        keywords = gui_data.keywords.split()
-
-    host_image_path = gui_data.host_image
-    resolution_divider = int(gui_data.resolution_factor)
-    output_directory = gui_data.output_directory
-    show_image = not bool(gui_data.show_image)
-
-
-# sets host_image variables
-def set_host_image():
-    global host_image_path
-    global host_image
-    global host_image_format
-    global host_width
-    global host_height
-    global total_host_pixel_count
-    global tail
-
-    host_image = Image.open(host_image_path)
-
-    host_image_format = host_image.format
-    host_width, host_height = host_image.size[0], host_image.size[1]
-    total_host_pixel_count = host_width * host_height
-    tail = os.path.split(host_image_path)[1]
-
-
-# if necessary, creates a new host image with a lower resolution
-def host_resolution_configuration():
-    global host_image_path
-    global host_image
-    global host_width
-    global host_height
-    global total_host_pixel_count
-    global resized
-
-    if resolution_divider > 1:
-        host_image = host_image.resize((int(host_width / resolution_divider), int(host_height / resolution_divider)),
-                                       Image.LANCZOS)
-
-        host_image_path = os.path.join(cwd, rf'RESIZED-{tail}')
-        host_image.save(host_image_path)
-
-        resized = True
-
-        host_width, host_height = host_image.size[0], host_image.size[1]
-        total_host_pixel_count = (host_image.size[0] * host_image.size[1])
-
-
 # configures all of the images into a dependent list of jimages
 def dependent_image_configuration():
     global blank_jimage
@@ -168,8 +115,8 @@ def dependent_image_configuration():
 
     # returns True if keyword is found inside string
     def keyword_inside(name):
-        if len(keywords) > 0:
-            for keyword in keywords:
+        if len(image_gui.keywords) > 0:
+            for keyword in image_gui.keywords:
                 if keyword in name:
                     return True
         else:
@@ -202,14 +149,14 @@ def best_jimage(pixel):
     global f
 
     # returns the Jimage for transparent space
-    if pixel[3] <= threshold:
-        if fill_trans:
+    if pixel[3] <= image_gui.threshold:
+        if image_gui.fill_trans:
             return trans_jimage
         else:
             return blank_jimage
 
     # returns best neighboring Jimage
-    if threshold > 0:
+    if image_gui.threshold > 0:
         checked_neighbor = best_neighbor(pixel)
         if checked_neighbor is not None:
             n += 1
@@ -225,16 +172,16 @@ def best_neighbor(pixel):
     sel_len = len(selected_jimages)
 
     # only returns a Jimage once enough pixels have been covered
-    if n_range == 0 or sel_len <= (host_width * n_range) + n_range:
+    if image_gui.n_range == 0 or sel_len <= (host_image.width * image_gui.n_range) + image_gui.n_range:
         return None
 
-    neighboring_images = find_neighbors(n_range, sel_len)
+    neighboring_images = find_neighbors(image_gui.n_range, sel_len)
 
     for neighbor in neighboring_images:
 
         distance = numpy.linalg.norm(numpy.subtract(neighbor.av_color, pixel))
 
-        if distance <= threshold:
+        if distance <= image_gui.threshold:
             return neighbor
 
     return None
@@ -245,7 +192,7 @@ def find_neighbors(n_range, sel_len):
 
     neighbors = []
 
-    for y in range(sel_len, sel_len - (host_width * n_range), -host_width):
+    for y in range(sel_len, sel_len - (host_image.width * n_range), - host_image.width):
         for x in range(-n_range, n_range+1):
 
             # logic prevents exceeding towards unknown elements in selected_jimages
@@ -268,7 +215,7 @@ def check_dependents(pixel):
 
         distance = numpy.linalg.norm(numpy.subtract(dependent_jimage.av_color, pixel))
 
-        if distance <= threshold:
+        if distance <= image_gui.threshold:
             return dependent_jimage
 
         if distance < best_jimage_distance:
@@ -285,11 +232,11 @@ def main():
     last_pixel_number = 0
 
     # loops through each pixel of the host_image and appends a dependent_jimage to selected_jimages
-    for pixel in host_image.getdata():
+    for pixel in host_image.pil_image.getdata():
 
         pixel_copy = list(pixel)
 
-        if host_image_format == 'JPEG' or host_image.mode == 'RGB':
+        if host_image.format == 'JPEG' or host_image.mode == 'RGB':
             pixel_copy.append(225)
 
         jimage = best_jimage(pixel_copy)
@@ -298,10 +245,10 @@ def main():
         # data status estimates/records/prints
         i += 1
 
-        if i % numpy.floor(total_host_pixel_count/20) == 0:
+        if i % numpy.floor(host_image.pixel_count/20) == 0:
 
             try:
-                percent = i / total_host_pixel_count * 100
+                percent = i / host_image.pixel_count * 100
                 speed = (i - last_pixel_number) / (time.time() - last_pixel_time)
                 etc_raw = time.gmtime((total_host_pixel_count - i) / speed)
                 etc = str(etc_raw.tm_hour) + 'hrs : ' + str(etc_raw.tm_min) + 'mins : ' + str(etc_raw.tm_sec) + 'secs'
@@ -310,29 +257,29 @@ def main():
                       f'{format(speed, "0.2f")} pixels/sec | ETC: ({etc})')
 
             except:
-                print(f'{format(i / total_host_pixel_count * 100, "0.2f")})% complete | pixel ({i} / '
-                      f'{total_host_pixel_count} | n/a | n/a')
+                print(f'{format(i / host_image.pixel_count * 100, "0.2f")})% complete | pixel ({i} / '
+                      f'{host_image.pixel_count} | n/a | n/a')
 
             last_pixel_time = time.time()
             last_pixel_number = i
 
         elif i == 1:
-            print(f'{format(0, "0.2f")}% complete | pixel (0 / {total_host_pixel_count}) | n/a | n/a')
+            print(f'{format(0, "0.2f")}% complete | pixel (0 / {host_image.pixel_count}) | n/a | n/a')
 
             last_pixel_time = time.time()
             last_pixel_number = i
 
-        elif i == total_host_pixel_count:
-            print(f'100% complete | pixel ({i} / {total_host_pixel_count}) | n/a | n/a')
+        elif i == host_image.pixel_count:
+            print(f'100% complete | pixel ({i} / {host_image.pixel_count}) | n/a | n/a')
 
 
 # creates a mosaic from the list of selected_jimages
 def create_mosaic():
 
-    collage = Image.new('RGBA', (16*host_width, 16*host_height))
+    mosaic = Image.new('RGBA', (16*host_image.width, 16*host_image.height))
 
-    rows = host_width
-    cols = host_height
+    rows = host_image.width
+    cols = host_image.height
 
     i = 0
 
@@ -340,20 +287,18 @@ def create_mosaic():
         for row in range(rows):
             x = row * 16
             y = col * 16
-            collage.paste(selected_jimages[i].pil_image, (x, y))
+            mosaic.paste(selected_jimages[i].pil_image, (x, y))
             i += 1
 
-    save_image(collage)
+    save_image(mosaic)
 
 
 # saves the mosaic
-def save_image(collage_image):
-    global output_directory
-
+def save_image(mosaic_image):
     print('saving image...')
 
     # ensures that the new tail is .png
-    copy_tail = tail
+    copy_tail = host_image.tail
     tail_head = copy_tail.rsplit('.', 1)[0]
     new_tail = tail_head + '.png'
 
@@ -362,29 +307,29 @@ def save_image(collage_image):
         os.mkdir('mosaics')
 
     # if output directory is undefined or not a directory (somehow)
-    if output_directory is None or os.path.isdir(output_directory) is False:
-        output_directory = os.path.join(cwd, r"mosaics")
+    if image_gui.output_directory is None or os.path.isdir(image_gui.output_directory) is False:
+        image_gui.output_directory = os.path.join(cwd, r"mosaics")
 
-    output_file = os.path.join(output_directory, rf'MOSAIC-{new_tail}')
+    output_file = os.path.join(image_gui.output_directory, rf'MOSAIC-{new_tail}')
 
-    collage_image.save(output_file)
+    mosaic_image.save(output_file)
     print(f'image saved as "{output_file}"')
 
-    if show_image:
+    if image_gui.show_image:
         print('showing image...')
-        collage_image.show()
+        mosaic_image.show()
 
 
 # little bit of clean up and data print
 def final_touches():
 
     # removes resized host_image
-    if resized:
-        os.remove(host_image_path)
+    if host_image.resized:
+        os.remove(host_image.fp)
 
     # does not show file explorer if it's on desktop
-    if os.path.split(output_directory)[1] != 'Desktop':
-        os.startfile(output_directory)
+    if os.path.split(image_gui.output_directory)[1] != 'Desktop':
+        os.startfile(image_gui.output_directory)
 
     # data print
     time_raw = time.gmtime(time.time() - start_time)
@@ -392,18 +337,18 @@ def final_touches():
 
     n_cof = format(n/f, "0.2f")
 
-    print(f'\nProcess Complete in ({time_complete}) | Parameters used - IT: {threshold} RF: '
-          f'{resolution_divider} NR {n_range} | NCOF: {n_cof}')
+    print(f'\nProcess Complete in ({time_complete}) | Parameters used - IT: {image_gui.threshold} RF: '
+          f'{image_gui.resolution_divider} NR {image_gui.n_range} | NCOF: {n_cof}')
 
     print()
 
 
 if __name__ == "__main__":
     config_gui()
-    set_gui()
-    set_host_image()
+    image_gui.start_get_and_clean()
+    host_image = HostImage(image_gui.host_image_path)
     print('rescaling host image...')
-    host_resolution_configuration()
+    host_image.lower_resolution()
     print('retrieving minecraft images...')
     dependent_image_configuration()
     print('main process initiated...')
