@@ -41,7 +41,6 @@ class ImageGUI:
         self.resolution_divider = None
         self.show_image = None
         self.fill_trans = None
-        self.n_range = None
         self.output_directory = None
 
     def start_get_and_clean(self):
@@ -83,11 +82,6 @@ class ImageGUI:
                             metavar='Fill Transparency', widget='CheckBox',
                             help='Toggle whether to fill transparent pixels', action='store_true', default=False)
 
-        parser.add_argument('-n_range',
-                            metavar='Neighbor Range', widget='Slider', default=0,
-                            gooey_options={'max': 3}, help='Enter non-diagonal search range for neighboring images\n'
-                                                           'Only recommended with non-color-diverse images')
-
         parser.add_argument('-output_directory',
                             metavar='Output Location', widget='DirChooser',
                             default=rf'{os.path.join(os.getcwd(), "mosaics")}',
@@ -96,7 +90,6 @@ class ImageGUI:
         inputs = parser.parse_args()
 
         self.threshold = int(inputs.threshold)
-        self.n_range = int(inputs.n_range)
         self.fill_trans = bool(inputs.fill_trans)
 
         if str(inputs.keywords).isspace() or inputs.keywords is None:

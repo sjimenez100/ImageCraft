@@ -1,5 +1,5 @@
 '''
--08/09/2021
+-08/23/2021
 -ImageCraft, a program made by Sebastian Jimenez
 -This script is responsible for running the main functionalities of Image Craft.
 This does not include the custom GUI.
@@ -155,63 +155,17 @@ def best_jimage(pixel):
         else:
             return blank_jimage
 
-    # returns best neighboring Jimage
-    if image_gui.threshold > 0:
-        checked_neighbor = best_neighbor(pixel)
-        if checked_neighbor is not None:
-            n += 1
-            return checked_neighbor
-
-    # returns best dependent Jimage
-    f += 1
     return check_dependents(pixel)
-
-
-# returns the neighboring Jimage that is below the threshold
-def best_neighbor(pixel):
-    sel_len = len(selected_jimages)
-
-    # only returns a Jimage once enough pixels have been covered
-    if image_gui.n_range == 0 or sel_len <= (host_image.width * image_gui.n_range) + image_gui.n_range:
-        return None
-
-    neighboring_images = find_neighbors(image_gui.n_range, sel_len)
-
-    for neighbor in neighboring_images:
-
-        distance = numpy.linalg.norm(numpy.subtract(neighbor.av_color, pixel))
-
-        if distance <= image_gui.threshold:
-            return neighbor
-
-    return None
-
-
-# returns the neighbors within the non-diagonal n_range
-def find_neighbors(n_range, sel_len):
-
-    neighbors = []
-
-    for y in range(sel_len, sel_len - (host_image.width * n_range), - host_image.width):
-        for x in range(-n_range, n_range+1):
-
-            # logic prevents exceeding towards unknown elements in selected_jimages
-            if y == sel_len and x >= 0:
-                pass
-            else:
-                neighbor = selected_jimages[y + x]
-
-            neighbors.append(neighbor)
-
-    return neighbors
 
 
 # returns the best possible dependent Jimage at or beneath the threshold
 def check_dependents(pixel):
     best_jimage_distance = 510
-    best_pot_jimage = Jimage(Image.new('RGBA', (0, 0)))
+    best_dependent = Jimage(Image.new('RGBA', (0, 0)))
+    index = -1
 
     for dependent_jimage in dependent_jimages:
+        index += 1
 
         distance = numpy.linalg.norm(numpy.subtract(dependent_jimage.av_color, pixel))
 
@@ -220,9 +174,12 @@ def check_dependents(pixel):
 
         if distance < best_jimage_distance:
             best_jimage_distance = distance
-            best_pot_jimage = dependent_jimage
+            best_dependent = dependent_jimage
 
-    return best_pot_jimage
+    # insert best_dependent into the front of the list
+    dependent_jimages.insert(0, dependent_jimages.pop(index))
+
+    return best_dependent
 
 
 # appends the best jimage to the selected jimages for each pixel and updates status
@@ -250,10 +207,10 @@ def main():
             try:
                 percent = i / host_image.pixel_count * 100
                 speed = (i - last_pixel_number) / (time.time() - last_pixel_time)
-                etc_raw = time.gmtime((total_host_pixel_count - i) / speed)
+                etc_raw = time.gmtime((host_image.pixel_count - i) / speed)
                 etc = str(etc_raw.tm_hour) + 'hrs : ' + str(etc_raw.tm_min) + 'mins : ' + str(etc_raw.tm_sec) + 'secs'
 
-                print(f'{format(percent, "0.2f")}% complete | pixel ({i} / {total_host_pixel_count}) | '
+                print(f'{format(percent, "0.2f")}% complete | pixel ({i} / {host_image.pixel_count}) | '
                       f'{format(speed, "0.2f")} pixels/sec | ETC: ({etc})')
 
             except:
@@ -335,10 +292,8 @@ def final_touches():
     time_raw = time.gmtime(time.time() - start_time)
     time_complete = str(time_raw.tm_hour) + 'hrs : ' + str(time_raw.tm_min) + 'mins : ' + str(time_raw.tm_sec) + 'secs'
 
-    n_cof = format(n/f, "0.2f")
-
     print(f'\nProcess Complete in ({time_complete}) | Parameters used - IT: {image_gui.threshold} RF: '
-          f'{image_gui.resolution_divider} NR {image_gui.n_range} | NCOF: {n_cof}')
+          f'{image_gui.resolution_divider}')
 
     print()
 
